@@ -1,0 +1,156 @@
+# 终稿：主界面「有地图-有任务」态（对齐设计稿：作业任务列表 / 地图联动 / 开始作业）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# 执行前填写 android.deviceId
+# 前置：已建图、定位成功、至少 2 个任务集（含 1 个默认任务「日常割草」）、机器空闲
+config:
+  ai:
+    actionTimeout: 30000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "主界面-有地图有任务-P0"
+  groupName: "界面和任务设置"
+  groupDescription: "主界面展示/任务区/有地图有任务"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    已建图且定位成功；当前地图「{{map.name}}」；
+    右侧存在多个{{ui.panel.jobTasks}}（如{{tasks.defaultSet}}、{{tasks.secondarySet}}、{{tasks.thirdSet}}）；
+    机器人为空闲。权限弹窗点允许；更新跳过；确认框点确认。
+    {{ui.buttons.startWork}}类用例会真实启动作业，请在测试台架环境执行。
+
+tasks:
+  - name: "12903557-有任务时作业任务面板展开与收起"
+    repeat: 1
+    flow:
+      # - ai: 等待直到进入主界面，右侧显示「作业任务」标题
+      - ai: 等待直到进入主界面，右侧显示「{{ui.panel.jobTasks}}」标题
+      # - aiAssert: 任务列表已展开，可见至少一个任务集（如「日常割草」）
+      - aiAssert: 任务列表已展开，可见至少一个任务集（如「{{tasks.defaultSet}}」）
+      # - ai: 点击「作业任务」标题旁下拉箭头收起面板
+      - ai: 点击「{{ui.panel.jobTasks}}」标题旁下拉箭头收起面板
+      # - aiAssert: 面板收起为「作业任务>」，地图区域扩大显示
+      - aiAssert: 面板收起为「{{ui.panel.jobTasks}}>」，地图区域扩大显示
+      # - ai: 再次点击「作业任务>」展开面板
+      - ai: 再次点击「{{ui.panel.jobTasks}}>」展开面板
+      # - aiAssert: 任务列表与「+ 新建」按钮重新显示，布局无错乱
+      - aiAssert: 任务列表与「{{ui.buttons.newFab}}」按钮重新显示，布局无错乱
+
+  - name: "12903873-任务列表名称与任务数显示"
+    repeat: 1
+    flow:
+      - ai: 查看右侧任务列表各任务集卡片
+      # - aiAssert: 显示任务集名称（如日常割草、深度清理）、任务个数（如「2个任务」）及子区域名称
+      - aiAssert: 显示任务集名称（如{{tasks.defaultSet}}、{{tasks.secondarySet}}）、任务个数（如「2个任务」）及子区域名称
+
+  - name: "12903569-默认任务置顶排序"
+    repeat: 1
+    flow:
+      - ai: 查看任务列表从上到下的顺序
+      # - aiAssert: 带默认星标的任务集（如「日常割草」）固定在列表最上方
+      - aiAssert: 带默认星标的任务集（如「{{tasks.defaultSet}}」）固定在列表最上方
+
+  - name: "12903874-点击任务卡片展开详情与地图高亮"
+    repeat: 1
+    flow:
+      # - ai: 点击「日常割草」任务集卡片
+      - ai: 点击「{{tasks.defaultSet}}」任务集卡片
+      - ai: 等待直到卡片展开显示子任务步骤
+      # - aiAssert: 展开显示区域步骤（如 A区-前草坪）及工作模式图标
+      - aiAssert: 展开显示区域步骤（如 {{zones.detail.a}}）及工作模式图标
+      - aiAssert: 地图上对应作业区呈选中高亮（紫色边框或对勾）
+
+  - name: "12903875-任务卡片选中收起与切换"
+    repeat: 1
+    flow:
+      # - ai: 点击未选中的「深度清理」任务集卡片
+      - ai: 点击未选中的「{{tasks.secondarySet}}」任务集卡片
+      # - aiAssert: 深度清理卡片展开选中，地图上对应区域高亮
+      - aiAssert: 「{{tasks.secondarySet}}」卡片展开选中，地图上对应区域高亮
+      # - ai: 再次点击已选中的「深度清理」卡片
+      - ai: 再次点击已选中的「{{tasks.secondarySet}}」卡片
+      - aiAssert: 卡片收起，地图高亮消失
+      # - ai: 点击「快速修剪」任务集卡片
+      - ai: 点击「{{tasks.thirdSet}}」任务集卡片
+      # - aiAssert: 快速修剪展开选中，深度清理自动取消选中
+      - aiAssert: 「{{tasks.thirdSet}}」展开选中，「{{tasks.secondarySet}}」自动取消选中
+
+  - name: "12903879-选中任务显示编辑任务入口"
+    repeat: 1
+    flow:
+      # - ai: 点击「日常割草」任务集卡片展开
+      - ai: 点击「{{tasks.defaultSet}}」任务集卡片展开
+      - aiAssert: 卡片内显示「编辑任务」按钮或「...」编辑入口
+
+  - name: "12903835-编辑任务进入编辑页"
+    repeat: 1
+    flow:
+      # - ai: 在已展开的「日常割草」卡片上点击「编辑任务」
+      - ai: 在已展开的「{{tasks.defaultSet}}」卡片上点击「编辑任务」
+      - ai: 等待直到进入编辑任务页面
+      - aiAssert: 页面为编辑任务组合页，可见任务名称与区域列表
+      - ai: 点击返回回到主界面
+      - aiAssert: 回到主界面地图与任务列表
+
+  - name: "12903883-选中任务后点击开始作业"
+    repeat: 1
+    flow:
+      # - ai: 点击「日常割草」任务集卡片选中
+      - ai: 点击「{{tasks.defaultSet}}」任务集卡片选中
+      # - aiAssert: 面板底部显示绿色「开始作业」按钮
+      - aiAssert: 面板底部显示绿色「{{ui.buttons.startWork}}」按钮
+      # - ai: 点击「开始作业」
+      - ai: 点击「{{ui.buttons.startWork}}」
+      - ai: 若出现二次确认弹窗，点击确认
+      - ai: 等待直到进入作业中或任务执行页面
+      - aiAssert: 页面显示作业进行中状态（非空闲首页）
+# 人工：作业结束后返回空闲首页，或本 task 后手动停止任务
+
+  - name: "12903548-作业任务标题栏新建入口"
+    repeat: 1
+    flow:
+      # - ai: 点击任务面板右上角「+ 新建」
+      - ai: 点击任务面板右上角「{{ui.buttons.newFab}}」
+      - ai: 等待直到进入新建任务页
+      - aiAssert: 进入新建任务页面，无白屏崩溃
+      - ai: 点击返回取消，回到主界面
+
+  - name: "12903943-地图区域标注展示"
+    repeat: 1
+    flow:
+      - ai: 查看左侧地图绿色作业区标注
+      # - aiAssert: 可见「A区-前草坪」「B区-东侧花园」「C区-草坪」「D区-草坪」等区域名称与面积
+      - aiAssert: 可见「{{zones.detail.a}}」「{{zones.detail.b}}」「{{zones.detail.c}}」「{{zones.detail.d}}」等区域名称与面积
+
+  - name: "12903947-定位成功时点击定位按钮归中"
+    repeat: 1
+    flow:
+      - ai: 在地图上双指拖动或滑动，使视图偏离机器人位置
+      - ai: 点击左下角定位（十字准星）按钮
+      - aiAssert: 地图视图归中到当前机器定位区域，定位按钮响应正常
+
+  - name: "DESIGN-切换地图后定位按钮Toast"
+    repeat: 1
+    flow:
+      # - ai: 点击左上角地图栏「绿城·中央公园」
+      - ai: 点击左上角地图栏「{{map.name}}」
+      - ai: 在地图切换列表中选择另一张非当前定位的地图并确认切换
+      - ai: 点击左下角定位按钮
+      - aiAssert: 屏幕弹出 Toast 提示「当前机器定位丢失」，地图不发生错误跳转
+      # - ai: 点击地图栏切回「绿城·中央公园」或原定位地图
+      - ai: 点击地图栏切回「{{map.name}}」或原定位地图
+      - aiAssert: 任务列表与地图恢复正常
+
+  - name: "12904003-地图栏显示当前地图名称"
+    repeat: 1
+    flow:
+      - ai: 查看左上角地图栏
+      # - aiAssert: 地图栏显示当前使用地图名称（如绿城·中央公园）
+      - aiAssert: 地图栏显示当前使用地图名称（如{{map.name}}）

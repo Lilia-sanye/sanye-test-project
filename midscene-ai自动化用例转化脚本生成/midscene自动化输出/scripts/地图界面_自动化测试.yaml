@@ -1,0 +1,101 @@
+# 【地图界面】早期示例 | 10 task | 步骤含 config 变量；原步骤已注释保留
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+config:
+  ai:
+    actionTimeout: 30000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "{{device.id}}"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "地图界面测试"
+  groupName: "主界面功能测试"
+  generateReport: true
+  aiActContext: >
+    权限弹窗点击允许，更新提示点击跳过。
+    地图名「{{map.name}}」/「{{map.nameAlt}}」；作业区「{{zones.a.label}}」「{{zones.b.label}}」「{{zones.c.label}}」。
+    无任务空态「{{home.emptyPanelTitle}}」。电量、时间为动态 UI，不做数值断言。
+
+tasks:
+  - name: "验证地图界面显示"
+    repeat: 1
+    flow:
+      - ai: "查看地图界面"
+      - aiAssert: "地图显示卫星视图"
+      # - aiAssert: "地图上显示区域标记（A区草坪、B区草坪、C区草坪）"
+      - aiAssert: "地图上显示区域标记（{{zones.a.label}}、{{zones.b.label}}、{{zones.c.label}}）"
+      # - aiAssert: "右上角显示网络状态（4G、100%电量）"
+      - aiAssert: "右上角显示网络状态（4G、电量信息）"
+
+  - name: "点击设置按钮"
+    repeat: 1
+    flow:
+      - ai: "点击底部左侧的设置按钮"
+      - aiAssert: "进入设置页面"
+
+  - name: "点击返航按钮"
+    repeat: 1
+    flow:
+      - ai: "点击底部中间的返航按钮"
+      - aiAssert: "触发返航任务"
+
+  - name: "点击回充按钮"
+    repeat: 1
+    flow:
+      - ai: "点击底部右侧的回充按钮"
+      - aiAssert: "触发回充任务"
+
+  - name: "点击新建任务按钮"
+    repeat: 1
+    flow:
+      - ai: "点击右下角的新建任务按钮"
+      - aiAssert: "进入任务创建页面"
+
+  - name: "点击地图区域创建任务"
+    repeat: 1
+    flow:
+      # - ai: "点击地图上的A区草坪区域"
+      - ai: "点击地图上的{{zones.a.label}}区域"
+      - aiAssert: "弹出快速任务创建提示"
+
+  - name: "验证右侧面板显示"
+    repeat: 1
+    flow:
+      - ai: "查看右侧面板"
+      # - aiAssert: "显示'点击地图区域'提示"
+      - aiAssert: "显示'{{home.guideTitle}}'提示"
+      # - aiAssert: "显示'可快速创建任务、快速启动任务'说明"
+      - aiAssert: "显示'{{home.guideSubtitle}}'说明"
+
+  - name: "验证状态栏显示"
+    repeat: 1
+    flow:
+      - ai: "查看顶部状态栏"
+      # - aiAssert: "显示位置信息'绿城-中央公园'"
+      - aiAssert: "显示位置信息'{{map.nameAlt}}'"
+      - aiAssert: "显示4G信号图标"
+      # - aiAssert: "显示电量100%"
+      - aiAssert: "显示电量图标或电量百分比"
+      # - aiAssert: "显示时间17:38"
+      - aiAssert: "显示当前时间"
+
+  - name: "验证无作业任务状态"
+    repeat: 1
+    flow:
+      - ai: "查看右侧面板顶部"
+      # - aiAssert: "显示'暂无作业任务'"
+      - aiAssert: "显示'{{home.emptyPanelTitle}}'"
+
+  - name: "完整任务创建流程"
+    repeat: 1
+    flow:
+      - ai: "点击新建任务按钮"
+      - ai: "选择地图区域"
+      - ai: "确认任务创建"
+      - aiAssert: "任务创建成功"
+      - aiAssert: "右侧面板显示任务列表"

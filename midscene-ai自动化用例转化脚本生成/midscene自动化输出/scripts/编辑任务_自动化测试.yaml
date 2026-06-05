@@ -1,0 +1,187 @@
+# 终稿：编辑已有任务 + 任务参数设置（设计稿：编辑任务 → 保存/删除 → 区域参数页）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# 执行前填写 android.deviceId
+# 前置：已建图、定位成功；首页存在「日常割草」等已保存任务集（≥2 条子区域更佳）
+# 与「新建任务_自动化测试.yaml」衔接：新建保存后再跑本套件，或复用已有任务数据
+config:
+  ai:
+    actionTimeout: 35000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "编辑任务与参数-P0"
+  groupName: "界面和任务设置"
+  groupDescription: "编辑任务/任务参数设置"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    主界面有已保存{{ui.panel.jobTasks}}。权限弹窗点允许；更新跳过。
+    删除整单会移除任务集，建议在测试环境执行；参数页改动后请点「确定」保存或按用例取消。
+
+tasks:
+  # --- 一、首页进入编辑任务 ---
+  - name: "DESIGN-展开任务卡点击编辑任务进入"
+    repeat: 1
+    flow:
+      # - ai: 等待直到主界面显示「作业任务」
+      - ai: 等待直到主界面显示「{{ui.panel.jobTasks}}」
+      # - ai: 点击「日常割草」任务集卡片展开详情
+      - ai: 点击「{{tasks.defaultSet}}」任务集卡片展开详情
+      - ai: 点击卡片内「编辑任务」按钮
+      - ai: 等待直到页面标题为「编辑任务」
+      - aiAssert: 进入编辑任务页（非「新建任务」），可见任务名输入框与任务列表
+
+  - name: "12903836-编辑页任务名显示当前任务名"
+    repeat: 1
+    flow:
+      - ai: 查看任务名输入框
+      # - aiAssert: 输入框显示当前任务集名称（如「日常割草」或「任务1」），非空
+      - aiAssert: 输入框显示当前任务集名称（如「{{tasks.defaultSet}}」或「任务1」），非空
+
+  - name: "12903837-编辑页修改任务名称"
+    repeat: 1
+    flow:
+      # - ai: 点击任务名输入框，清空后输入「编辑自动化测试」
+      - ai: 点击任务名输入框，清空后输入「{{tasks.save.editTask}}」
+      - ai: 点击空白处收起键盘
+      # - aiAssert: 任务名显示「编辑自动化测试」
+      - aiAssert: 任务名显示「{{tasks.save.editTask}}」
+
+  - name: "12903849-DESIGN-编辑页已设为默认任务态"
+    repeat: 1
+    flow:
+      - ai: 查看「设为默认任务」区域
+      - aiAssert: 显示「已设为默认任务」或橙色星标选中态（若当前为默认任务）
+
+  - name: "12903850-编辑页定时作业开关"
+    repeat: 1
+    flow:
+      - ai: 切换「定时作业」开关一次
+      - aiAssert: 开关状态随点击变化，页面无崩溃
+
+  - name: "12903841-DESIGN-编辑页保存任务Toast回首页"
+    repeat: 1
+    flow:
+      - ai: 确认任务列表至少有一条区域任务
+      # - ai: 点击底部绿色「保存任务」或「保存」按钮
+      - ai: 点击底部绿色「{{ui.buttons.saveTask}}」或「保存」按钮
+      - ai: 等待直到出现保存成功提示
+      # - aiAssert: 弹出绿色 Toast「任务已保存」
+      - aiAssert: 弹出绿色 Toast「{{ui.toasts.taskSaved}}」
+      # - ai: 等待直到返回主界面作业任务页
+      - ai: 等待直到返回主界面{{ui.panel.jobTasks}}页
+      # - aiAssert: 首页任务列表显示更新后的任务名「编辑自动化测试」或原任务集
+      - aiAssert: 首页任务列表显示更新后的任务名「{{tasks.save.editTask}}」或原任务集
+
+  # --- 二、任务参数设置（割草） ---
+  - name: "12903725-任务列表铅笔进入A区草坪参数页"
+    repeat: 1
+    flow:
+      # - ai: 再次进入「日常割草」→「编辑任务」
+      - ai: 再次进入「{{tasks.defaultSet}}」→「编辑任务」
+      # - ai: 在任务列表中点击「A区草坪」右侧铅笔编辑图标
+      - ai: 在任务列表中点击「{{zones.a.label}}」右侧铅笔编辑图标
+      - ai: 等待直到进入任务参数设置页
+      # - aiAssert: 页面标题含「A区草坪」和「任务参数设置」；显示「任务类型」「割草高度」等区域
+      - aiAssert: 页面标题含「{{zones.a.label}}」和「任务参数设置」；显示「任务类型」「割草高度」等区域
+
+  - name: "DESIGN-割草任务类型切换"
+    repeat: 1
+    flow:
+      - ai: 点击「收集」任务类型
+      - aiAssert: 「收集」为选中态
+      - ai: 点击「割草」任务类型
+      - aiAssert: 「割草」恢复选中态
+
+  - name: "DESIGN-割草高度预设5寸短草"
+    repeat: 1
+    flow:
+      - ai: 点击「5寸 短草」或「5' 短草」高度预设按钮
+      - aiAssert: 该预设高亮选中；滑杆附近显示当前约 5 inch
+
+  - name: "DESIGN-割盘转速选择中速"
+    repeat: 1
+    flow:
+      - ai: 在「割盘转速」区域点击「中速」或「中速 3000 RPM」
+      - aiAssert: 中速选项为选中态，说明文案含平衡效率与质量类描述
+
+  - name: "DESIGN-运行速度选择1档"
+    repeat: 1
+    flow:
+      - ai: 在「运行速度」区域点击「1档」或「1档 0.5 m/s」
+      - aiAssert: 1档为选中态
+
+  - name: "DESIGN-参数页点击确定保存"
+    repeat: 1
+    flow:
+      - ai: 点击右上角绿色「确定」按钮
+      - ai: 等待直到返回编辑任务页
+      - aiAssert: 回到「编辑任务」页，任务列表中 A 区条目显示更新后的模式（如割草）
+
+  # --- 三、收集+割草 / 收集 参数 ---
+  - name: "DESIGN-收集加割草任务类型与吸力"
+    repeat: 1
+    flow:
+      # - ai: 再次点击「A区草坪」铅笔进入参数页
+      - ai: 再次点击「{{zones.a.label}}」铅笔进入参数页
+      - ai: 点击「收集 + 割草」任务类型
+      - aiAssert: 页面显示「吸力设置」与「割盘转速」等区域
+      - ai: 点击吸力「中」档位
+      - ai: 点击「确定」返回编辑任务页
+      - aiAssert: 回到编辑任务页无白屏
+
+  - name: "DESIGN-纯收集任务类型参数"
+    repeat: 1
+    flow:
+      # - ai: 点击任务列表中「B区草坪」或第二条区域铅笔图标
+      - ai: 点击任务列表中「{{zones.b.label}}」或第二条区域铅笔图标
+      - ai: 点击「收集」任务类型
+      - aiAssert: 显示「吸力设置」「运行速度」；不强调割草高度（或高度区隐藏）
+      - ai: 打开「巡检收集」开关（若存在）
+      - ai: 点击「确定」返回编辑任务页
+
+  # --- 四、参数未保存返回确认 ---
+  - name: "PARAM-参数无改动直接返回"
+    repeat: 1
+    flow:
+      # - ai: 点击「A区草坪」铅笔进入参数页，不做任何修改
+      - ai: 点击「{{zones.a.label}}」铅笔进入参数页，不做任何修改
+      - ai: 点击左上角返回
+      - aiAssert: 直接回到编辑任务页，无「参数未保存」弹窗
+
+  - name: "12903845-PARAM-参数有改动返回二次确认"
+    repeat: 1
+    flow:
+      # - ai: 再次进入「A区草坪」任务参数页
+      - ai: 再次进入「{{zones.a.label}}」任务参数页
+      - ai: 将「割盘转速」改为「高速」或「高速 3600 RPM」
+      - ai: 点击左上角返回
+      - aiAssert: 弹出「参数未保存」弹窗，文案含「确定要返回吗」「不会保存」
+      - ai: 点击弹窗「取消」
+      - aiAssert: 仍停留在参数设置页，高速仍为选中
+      - ai: 点击「确定」保存参数后回到编辑任务页
+
+  # --- 五、编辑页删除整单 ---
+  - name: "12903843-编辑页底部删除二次确认"
+    repeat: 1
+    flow:
+      - ai: 在编辑任务页点击底部红色「删除」
+      - aiAssert: 弹出「删除任务」二次确认，文案含「确定要删除」「不可撤销」
+
+  - name: "DESIGN-删除确认Toast此任务已删除回首页"
+    repeat: 1
+    flow:
+      - ai: 在删除弹窗中点击「删除」确认
+      - ai: 等待直到出现删除提示
+      # - aiAssert: 弹出 Toast「任务已删除」或「此任务已删除」
+      - aiAssert: 弹出 Toast「{{ui.toasts.taskDeleted}}」或「此任务已删除」
+      - ai: 等待直到返回主界面
+      - aiAssert: 已回首页；被删任务集不再显示（或列表减少一项）
+# 注意：删除用例会移除「编辑自动化测试」任务集，后续用例需其他任务或先新建

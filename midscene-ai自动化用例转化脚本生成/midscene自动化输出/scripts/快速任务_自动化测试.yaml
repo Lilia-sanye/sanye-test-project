@@ -1,0 +1,189 @@
+# 终稿：快速任务（地图/列表增删、保存为任务、开始作业、与新建/编辑任务规则一致）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# 执行前填写 android.deviceId；前置：已建图、定位成功、机器空闲
+# 关联：新建任务_自动化测试.yaml、编辑任务_自动化测试.yaml（添加/删除/5次/拖拽规则同源）
+config:
+  ai:
+    actionTimeout: 35000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "快速任务-P0"
+  groupName: "界面和任务设置"
+  groupDescription: "快速任务/界面基础信息展示与操作"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    已建图且定位成功。权限弹窗点允许；更新跳过。
+    {{ui.buttons.saveAsTask}}会写入首页{{ui.panel.jobTasks}}列表，建议命名「{{tasks.save.quickTask}}」便于清理。
+    {{ui.buttons.startWork}}会真实启动作业，请在台架环境执行。
+
+tasks:
+  # --- 进入与界面 ---
+  - name: "12903941-DESIGN-首页点击地图作业区进入快速任务"
+    repeat: 1
+    flow:
+      # - ai: 等待直到主界面地图页显示「绿城·中央公园」及 A/B/C 草坪区域
+      - ai: 等待直到主界面地图页显示「{{map.name}}」及 A/B/C 草坪区域
+      # - ai: 点击地图上已标注的「A区草坪」或「B区草坪」绿色区域
+      - ai: 点击地图上已标注的「{{zones.a.label}}」或「{{zones.b.label}}」绿色区域
+      - ai: 等待直到进入「快速任务」页面
+      - aiAssert: 页面标题显示「快速任务」；右侧为任务列表与可添加区域，非新建/编辑任务页
+
+  - name: "DESIGN-快速任务页布局与底部按钮"
+    repeat: 1
+    flow:
+      - ai: 查看页面顶部与右侧面板
+      # - aiAssert: 标题含「快速任务」；地图可见 A区草坪、B区草坪、C区草坪标注
+      - aiAssert: 标题含「快速任务」；地图可见 {{zones.a.label}}、{{zones.b.label}}、{{zones.c.label}}标注
+      # - aiAssert: 显示「任务列表」与「可添加区域」；底部有「保存为任务」与「开始作业」按钮
+      - aiAssert: 显示「任务列表」与「可添加区域」；底部有「{{ui.buttons.saveAsTask}}」与「{{ui.buttons.startWork}}」按钮
+
+  - name: "12903692-任务列表为空时开始作业与保存置灰"
+    repeat: 1
+    flow:
+      - ai: 若任务列表非空，删除全部任务直至列表为空
+      # - ai: 查看底部「开始作业」「保存为任务」按钮状态
+      - ai: 查看底部「{{ui.buttons.startWork}}」「{{ui.buttons.saveAsTask}}」按钮状态
+      - aiAssert: 两按钮置灰或不可点击
+
+  # --- 添加任务（地图 / 列表，与新建编辑同源规则）---
+  - name: "12903378-点击地图添加任务并高亮"
+    repeat: 1
+    flow:
+      # - ai: 点击地图上「C区草坪」区域
+      - ai: 点击地图上「{{zones.c.label}}」区域
+      - ai: 等待直到任务列表更新
+      # - aiAssert: C区草坪在地图上高亮或对勾标记；任务列表新增 C区草坪条目
+      - aiAssert: 「{{zones.c.label}}」在地图上高亮或对勾标记；任务列表新增「{{zones.c.label}}」条目
+
+  - name: "12903379-可添加区域列表点击加号添加"
+    repeat: 1
+    flow:
+      # - ai: 在「可添加区域」点击「B区草坪」右侧「+」
+      - ai: 在「可添加区域」点击「{{zones.b.label}}」右侧「+」
+      # - aiAssert: 任务列表增加 B区草坪；可添加区域显示「已添加1次」或「已添加 1 次」
+      - aiAssert: 任务列表增加 {{zones.b.label}}；可添加区域显示「已添加1次」或「已添加 1 次」
+
+  - name: "12903781-DESIGN-选中区不在视口时地图自动居中"
+    repeat: 1
+    flow:
+      - ai: 双指缩小或拖动地图，使某一可添加区域不在当前视野
+      - ai: 在可添加区域点击该区域「+」添加
+      - aiAssert: 地图自动平移或缩放，使对应作业区进入可见范围并高亮
+
+  - name: "12903382-任务列表X删除与地图取消高亮"
+    repeat: 1
+    flow:
+      - ai: 点击任务列表中某条任务右侧「×」删除
+      - aiAssert: 该任务从列表移除；地图对应区域取消高亮
+      - ai: 再次点击地图上已高亮的区域以取消选中（若仍高亮）
+      - aiAssert: 对应任务从列表移除或计数减少
+
+  - name: "12903381-任务列表长按拖拽排序"
+    repeat: 1
+    flow:
+      - ai: 确保任务列表至少 2 条（不足则再添加 A区、B区）
+      - ai: 长按第二条任务并拖动到第一条位置后松手
+      - aiAssert: 任务顺序已更新，拖拽过程无崩溃
+
+  - name: "12903383-同一区域最多添加5次后隐藏"
+    repeat: 1
+    flow:
+      # - ai: 清空任务列表后，对「A区草坪」在可添加区域连续点击「+」
+      - ai: 清空任务列表后，对「{{zones.a.label}}」在可添加区域连续点击「+」
+      - aiAssert: 第 5 次仍可添加；第 6 次无法添加或弹出「同一区域最多可添加 5 次」提示
+      - aiAssert: A区在可添加列表中隐藏或不可再点
+
+  - name: "12903380-任务列表铅笔进入参数编辑"
+    repeat: 1
+    flow:
+      # - ai: 点击任务列表中「A区草坪」右侧铅笔编辑图标
+      - ai: 点击任务列表中「{{zones.a.label}}」右侧铅笔编辑图标
+      - ai: 等待直到进入任务参数设置页
+      # - aiAssert: 页面标题含「A区草坪」与「任务参数设置」
+      - aiAssert: 页面标题含「{{zones.a.label}}」与「任务参数设置」
+      - ai: 点击右上角「确定」返回快速任务页
+
+  # --- 保存为任务（命名弹窗）---
+  - name: "12903804-12903805-保存为任务弹窗键盘与居中"
+    repeat: 1
+    flow:
+      - ai: 确认任务列表至少有 1 条区域任务
+      # - ai: 点击底部「保存为任务」
+      - ai: 点击底部「{{ui.buttons.saveAsTask}}」
+      # - ai: 等待直到弹出「保存任务」命名弹窗
+      - ai: 等待直到弹出「{{ui.buttons.saveTask}}」命名弹窗
+      # - aiAssert: 弹窗标题「保存任务」；输入框自动聚焦且软键盘弹出
+      - aiAssert: 弹窗标题「{{ui.buttons.saveTask}}」；输入框自动聚焦且软键盘弹出
+      # - ai: 在输入框输入「快速任务自动化测试」
+      - ai: 在输入框输入「{{tasks.save.quickTask}}」
+      - ai: 点击空白处或收起键盘
+      - aiAssert: 命名弹窗在屏幕居中显示，不被键盘顶到异常位置
+
+  - name: "12903872-12903613-保存确认Toast并回首页任务列表"
+    repeat: 1
+    flow:
+      # - ai: 在保存任务弹窗点击「保存」
+      - ai: 在{{ui.buttons.saveTask}}弹窗点击「保存」
+      - ai: 等待直到出现成功提示
+      # - aiAssert: 弹出绿色 Toast「任务已保存」
+      - aiAssert: 弹出绿色 Toast「{{ui.toasts.taskSaved}}」
+      # - ai: 等待直到返回主界面作业任务页
+      - ai: 等待直到返回主界面{{ui.panel.jobTasks}}页
+      # - aiAssert: 任务列表中出现「快速任务自动化测试」或刚保存的任务集名称
+      - aiAssert: 任务列表中出现「{{tasks.save.quickTask}}」或刚保存的任务集名称
+
+  - name: "12903405-DESIGN-保存后可在首页复用该任务"
+    repeat: 1
+    flow:
+      # - ai: 在首页找到刚保存的「快速任务自动化测试」任务集
+      - ai: 在首页找到刚保存的「{{tasks.save.quickTask}}」任务集
+      - ai: 点击该任务集卡片展开
+      - aiAssert: 展开显示与快速任务保存时一致的区域步骤（如 A区、B区）
+
+  # --- 开始作业 ---
+  - name: "12903808-有任务时开始作业可点击"
+    repeat: 1
+    flow:
+      # - ai: 再次从主界面点击地图区域进入快速任务页
+      - ai: 再次从主界面{{home.guideTitle}}进入快速任务页
+      # - ai: 添加至少一条「B区草坪」到任务列表
+      - ai: 添加至少一条「{{zones.b.label}}」到任务列表
+      # - ai: 点击底部绿色「开始作业」
+      - ai: 点击底部绿色「{{ui.buttons.startWork}}」
+      - ai: 若有二次确认弹窗则点击确认
+      - ai: 等待直到进入作业执行或倒计时页面
+      - aiAssert: 页面显示作业进行中或开始倒计时，非空闲首页
+# 人工：作业结束后返回；本 task 会真实启动作业
+
+  - name: "12903777-快速任务左上角返回主界面"
+    repeat: 1
+    flow:
+      - ai: 从主界面进入快速任务页，不添加任务
+      - ai: 点击左上角返回
+      - ai: 等待直到回到主界面地图页
+      # - aiAssert: 回到主界面，仍为「作业任务」或地图首页
+      - aiAssert: 回到主界面，仍为「{{ui.panel.jobTasks}}」或地图首页
+
+  # --- 冒烟串联 ---
+  - name: "12903690-快速任务冒烟-添加保存不启动作业"
+    repeat: 1
+    flow:
+      # - ai: 主界面点击地图「A区草坪」进入快速任务
+      - ai: 主界面点击地图「{{zones.a.label}}」进入快速任务
+      # - ai: 点击地图添加「B区草坪」
+      - ai: 点击地图添加「{{zones.b.label}}」
+      # - ai: 点击「保存为任务」，输入「快速冒烟任务」并保存
+      - ai: 点击「{{ui.buttons.saveAsTask}}」，输入「{{tasks.save.quickSmoke}}」并保存
+      # - aiAssert: Toast「任务已保存」；首页可见「快速冒烟任务」
+      - aiAssert: Toast「{{ui.toasts.taskSaved}}」；首页可见「{{tasks.save.quickSmoke}}」
+      # - ai: 不点击「开始作业」
+      - ai: 不点击「{{ui.buttons.startWork}}」

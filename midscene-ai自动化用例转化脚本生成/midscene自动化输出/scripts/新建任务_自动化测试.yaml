@@ -1,0 +1,238 @@
+# 终稿：新建任务流程（点击新建 → 未添加/已添加 → 默认/定时 → 保存/删除/返回确认）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# 执行前填写 android.deviceId
+# 前置：已建图、定位成功、主界面有作业任务列表；建议专用测试任务名避免污染数据
+# 下游：编辑已有任务见 编辑任务_自动化测试.yaml
+config:
+  ai:
+    actionTimeout: 30000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "新建任务流程-P0"
+  groupName: "界面和任务设置"
+  groupDescription: "主界面展示/任务区/新建任务"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    已建图且定位成功；从主界面进入新建任务。
+    权限弹窗点允许；更新跳过。软键盘弹出时可点空白收起。
+    保存类用例会写入任务列表，建议使用「{{tasks.save.newTask}}」命名便于清理。
+
+tasks:
+  - name: "12903548-作业任务页点击新建进入新建任务"
+    repeat: 1
+    flow:
+      # - ai: 等待直到主界面右侧显示「作业任务」
+      - ai: 等待直到主界面右侧显示「{{ui.panel.jobTasks}}」
+      # - ai: 点击右上角「+ 新建」
+      - ai: 点击右上角「{{ui.buttons.newFab}}」
+      - ai: 等待直到页面标题为「新建任务」
+      - aiAssert: 进入新建任务页，左侧地图与右侧表单正常显示，无白屏崩溃
+
+  - name: "12903612-未添加任务时不显示保存任务按钮"
+    repeat: 1
+    flow:
+      - ai: 查看新建任务页底部按钮区域
+      # - aiAssert: 不显示绿色「保存任务」按钮，也不显示底部「删除」按钮
+      - aiAssert: 不显示绿色「{{ui.buttons.saveTask}}」按钮，也不显示底部「删除」按钮
+      - ai: 查看任务列表标题
+      - aiAssert: 显示「任务列表 (0)」或「任务列表（0）」
+
+  - name: "12903799-未添加时提示文案与可添加区域列表"
+    repeat: 1
+    flow:
+      - ai: 查看页面顶部蓝色提示条
+      # - aiAssert: 显示「可点击地图区域添加，同一区域最多可添加5次」或语义相同提示
+      - aiAssert: 显示「可{{home.guideTitle}}添加，同一区域最多可添加5次」或语义相同提示
+      - ai: 查看任务列表下方占位提示
+      # - aiAssert: 显示「可点击地图区域添加任务」或「点击地图上的区域添加任务」
+      - aiAssert: 显示「可{{home.guideTitle}}添加任务」或「点击地图上的区域添加任务」
+      - ai: 向下滑动查看「可添加区域」列表
+      - aiAssert: 可添加区域列表显示草坪区域名称及右侧「+」按钮
+
+  - name: "12903616-12903617-任务名默认值与输入框聚焦"
+    repeat: 1
+    flow:
+      - ai: 查看任务名输入框
+      - aiAssert: 默认显示「任务 1」或「任务1」
+      - ai: 点击任务名输入框
+      - aiAssert: 输入框呈高亮/聚焦状态，软键盘弹出
+      # - ai: 清空并输入「自动化测试任务」
+      - ai: 清空并输入「{{tasks.save.newTask}}」
+      - ai: 点击输入框外空白区域收起键盘
+      # - aiAssert: 任务名显示为「自动化测试任务」
+      - aiAssert: 任务名显示为「{{tasks.save.newTask}}」
+
+  - name: "12903553-DESIGN-定时作业开关开启态"
+    repeat: 1
+    flow:
+      - ai: 确认「设为默认任务」为未选中或灰色星标状态
+      - ai: 打开「定时作业」开关
+      - aiAssert: 「定时作业」开关为蓝色开启态；「设为默认任务」保持未设为默认样式
+
+  - name: "12903552-DESIGN-设为默认任务已设为默认态"
+    repeat: 1
+    flow:
+      - ai: 关闭「定时作业」开关（若已开启）
+      - ai: 点击「设为默认任务」
+      - aiAssert: 显示「已设为默认任务」或橙色高亮星标；「设为默认任务」按钮呈选中态
+
+  - name: "12903349-可添加区域列表点击加号添加"
+    repeat: 1
+    flow:
+      # - ai: 在「可添加区域」列表中点击「B区草坪」右侧「+」按钮
+      - ai: 在「可添加区域」列表中点击「{{zones.b.label}}」右侧「+」按钮
+      - ai: 等待直到任务列表更新
+      # - aiAssert: 任务列表显示至少 1 条「B区草坪」；地图上 B 区高亮或对勾标记
+      - aiAssert: 任务列表显示至少 1 条「{{zones.b.label}}」；地图上 B 区高亮或对勾标记
+      - aiAssert: 可添加区域中 B 区显示「已添加1次」或「已添加 1 次」
+
+  - name: "12903350-点击地图草坪区域添加任务"
+    repeat: 1
+    flow:
+      # - ai: 点击地图上「A区草坪」绿色标注区域
+      - ai: 点击地图上「{{zones.a.label}}」绿色标注区域
+      - ai: 等待直到任务列表更新
+      # - aiAssert: 任务列表计数增加，列表含「A区草坪」；A 区在地图上高亮
+      - aiAssert: 任务列表计数增加，列表含「{{zones.a.label}}」；A 区在地图上高亮
+
+  - name: "DESIGN-已添加任务后显示保存与删除按钮"
+    repeat: 1
+    flow:
+      - ai: 查看页面底部
+      # - aiAssert: 显示绿色「保存任务」按钮；同时显示红色「删除」文字或删除入口
+      - aiAssert: 显示绿色「{{ui.buttons.saveTask}}」按钮；同时显示红色「删除」文字或删除入口
+
+  - name: "12903352-任务列表删除一项"
+    repeat: 1
+    flow:
+      - ai: 点击任务列表中第一条任务右侧删除图标（×）
+      - ai: 等待直到列表刷新
+      - aiAssert: 任务列表数量减 1，对应区域在可添加列表中可再次添加
+
+  - name: "12903353-同一区域最多添加5次"
+    repeat: 1
+    flow:
+      # - ai: 在可添加区域对「A区草坪」连续点击「+」直到无法再添加
+      - ai: 在可添加区域对「{{zones.a.label}}」连续点击「+」直到无法再添加
+      - aiAssert: 任务列表中 A 区相关条目最多 5 条，或弹出「同一区域最多可添加 5 次」提示
+      - ai: 若 A 区仍在可添加列表，再尝试点击 A 区「+」一次
+      - aiAssert: 第 6 次无法添加，或 A 区从可添加列表隐藏
+
+  - name: "12903724-任务列表长按拖拽排序"
+    repeat: 1
+    flow:
+      # - ai: 若任务少于 2 条，在可添加区域再添加一个不同区域（如 C区草坪）
+      - ai: 若任务少于 2 条，在可添加区域再添加一个不同区域（如 {{zones.c.label}}）
+      - ai: 长按任务列表第二项并向上拖动到第一项位置后松手
+      - aiAssert: 任务列表顺序已交换，拖拽过程无崩溃
+
+  - name: "12903613-12903841-保存任务Toast并返回首页"
+    repeat: 1
+    flow:
+      # - ai: 点击底部绿色「保存任务」按钮
+      - ai: 点击底部绿色「{{ui.buttons.saveTask}}」按钮
+      - ai: 等待直到出现保存成功提示
+      # - aiAssert: 弹出绿色 Toast「任务已保存」
+      - aiAssert: 弹出绿色 Toast「{{ui.toasts.taskSaved}}」
+      # - ai: 等待直到返回主界面作业任务页
+      - ai: 等待直到返回主界面{{ui.panel.jobTasks}}页
+      # - aiAssert: 主界面任务列表中出现「自动化测试任务」或刚保存的任务集名称
+      - aiAssert: 主界面任务列表中出现「{{tasks.save.newTask}}」或刚保存的任务集名称
+
+  - name: "12903457-未添加任务时直接返回"
+    repeat: 1
+    flow:
+      # - ai: 在主界面再次点击「+ 新建」进入新建任务页
+      - ai: 在主界面再次点击「{{ui.buttons.newFab}}」进入新建任务页
+      # - aiAssert: 任务列表为 0，底部无「保存任务」按钮
+      - aiAssert: 任务列表为 0，底部无「{{ui.buttons.saveTask}}」按钮
+      - ai: 点击左上角返回箭头
+      - ai: 等待直到回到主界面
+      # - aiAssert: 直接返回作业任务列表，无二次确认弹窗
+      - aiAssert: 直接返回{{ui.panel.jobTasks}}列表，无二次确认弹窗
+
+  - name: "12903456-已添加未保存时返回二次确认弹窗"
+    repeat: 1
+    flow:
+      # - ai: 点击「+ 新建」进入新建任务页
+      - ai: 点击「{{ui.buttons.newFab}}」进入新建任务页
+      - ai: 在可添加区域点击任意区域「+」添加一条任务
+      - ai: 点击左上角返回箭头
+      - aiAssert: 弹出标题「任务未保存」的二次确认弹窗，文案含「确定要返回吗」「所有任务配置不会保存」
+      - ai: 点击弹窗「取消」
+      - aiAssert: 弹窗关闭，仍停留在新建任务页，已添加任务仍在列表中
+
+  - name: "12903459-返回二次确认点击取消停留当前页"
+    repeat: 1
+    flow:
+      - ai: 再次点击左上角返回
+      - aiAssert: 再次弹出「任务未保存」确认弹窗
+      - ai: 点击弹窗「取消」
+      - aiAssert: 停留在新建任务页，任务列表与地图高亮状态不变
+
+  - name: "12903458-返回二次确认点击返回回首页"
+    repeat: 1
+    flow:
+      - ai: 点击左上角返回
+      - ai: 在「任务未保存」弹窗中点击「返回」按钮
+      # - ai: 等待直到回到主界面作业任务页
+      - ai: 等待直到回到主界面{{ui.panel.jobTasks}}页
+      # - aiAssert: 已回到首页，本次新建配置未保存，列表无新增「自动化测试任务」
+      - aiAssert: 已回到首页，本次新建配置未保存，列表无新增「{{tasks.save.newTask}}」
+
+  - name: "12903862-底部删除任务二次确认弹窗"
+    repeat: 1
+    flow:
+      # - ai: 点击「+ 新建」进入新建任务页
+      - ai: 点击「{{ui.buttons.newFab}}」进入新建任务页
+      # - ai: 输入任务名为「待删除测试任务」
+      - ai: 输入任务名为「{{tasks.save.deletePending}}」
+      - ai: 在可添加区域添加至少一条区域到任务列表
+      - ai: 点击底部红色「删除」按钮
+      - aiAssert: 弹出标题「删除任务」的二次确认弹窗，文案含「确定要删除」「不可撤销」「永久移除」
+
+  - name: "12903864-删除弹窗点击取消"
+    repeat: 1
+    flow:
+      - ai: 在删除确认弹窗中点击「取消」
+      - aiAssert: 弹窗关闭，仍停留在新建任务页，任务列表与地图状态未变化
+
+  - name: "12903863-12903865-12903866-删除确认Toast并回首页"
+    repeat: 1
+    flow:
+      - ai: 再次点击底部「删除」按钮
+      - ai: 在弹窗中点击红色「删除」确认按钮
+      - ai: 等待直到出现删除成功提示
+      # - aiAssert: 弹出绿色 Toast「任务已删除」
+      - aiAssert: 弹出绿色 Toast「{{ui.toasts.taskDeleted}}」
+      # - ai: 等待直到自动返回主界面作业任务页
+      - ai: 等待直到自动返回主界面{{ui.panel.jobTasks}}页
+      - aiAssert: 已回到首页，无卡顿白屏
+
+  - name: "12903848-DESIGN-保存后默认任务置顶显示"
+    repeat: 1
+    flow:
+      # - ai: 点击「+ 新建」进入新建任务页
+      - ai: 点击「{{ui.buttons.newFab}}」进入新建任务页
+      # - ai: 输入任务名「自动化测试任务」
+      - ai: 输入任务名「{{tasks.save.newTask}}」
+      - ai: 点击「设为默认任务」设为默认
+      # - ai: 在可添加区域添加一条「B区草坪」
+      - ai: 在可添加区域添加一条「{{zones.b.label}}」
+      # - ai: 点击「保存任务」
+      - ai: 点击「{{ui.buttons.saveTask}}」
+      # - ai: 等待直到 Toast「任务已保存」并回到首页
+      - ai: 等待直到 Toast「{{ui.toasts.taskSaved}}」并回到首页
+      # - ai: 查看作业任务列表顺序
+      - ai: 查看{{ui.panel.jobTasks}}列表顺序
+      # - aiAssert: 「自动化测试任务」显示在列表最上方且带默认星标
+      - aiAssert: 「{{tasks.save.newTask}}」显示在列表最上方且带默认星标

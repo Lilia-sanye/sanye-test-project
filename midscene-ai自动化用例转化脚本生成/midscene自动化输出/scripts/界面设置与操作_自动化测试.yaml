@@ -1,0 +1,230 @@
+# 终稿：界面设置与操作 P0 集成冒烟（Figma Hulk + CSV 对齐）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# Figma: https://www.figma.com/design/7GBt6kgznLTUePLp7YuAYd/Hulk node-id=1266:20（有地图-有任务）
+# CSV: midscene自动化输出/cases/界面和任务设置_可自动化用例.csv
+# 对照: midscene自动化输出/report/界面设置与操作_figma-控件对照.md
+# 细分套件: 主界面_有/无任务、快速任务、新建任务、编辑任务（同源规则见 domain-ui-task-setting.md）
+# 执行前填写 android.deviceId；区域名请与实机一致（A区草坪 / B区-东侧花园 等）
+config:
+  ai:
+    actionTimeout: 35000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "界面设置与操作-P0-集成"
+  groupName: "界面和任务设置"
+  groupDescription: "界面设置与操作/Figma+CSV P0 冒烟"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    已建图且定位成功；地图标签「{{map.name}}」；右侧有{{ui.panel.jobTasks}}（{{tasks.defaultSet}}、{{tasks.secondarySet}}、{{tasks.thirdSet}}等）。
+    机器人为空闲。权限弹窗点允许；更新跳过；确认框点确认。
+    「{{ui.buttons.startWork}}」「返航」「回充」会真实启动作业或移动，请在台架环境执行。
+
+tasks:
+  # --- 主界面 / 地图栏（Figma 1266:20）---
+  - name: "12879233-定位成功地图栏显示当前地图名"
+    repeat: 1
+    flow:
+      - ai: 等待直到主界面地图页加载完成
+      - ai: 查看左上角地图栏
+      # - aiAssert: 地图栏显示「绿城·中央公园」或当前定位地图名称，名称可读无乱码
+      - aiAssert: 地图栏显示「{{map.name}}」或当前定位地图名称，名称可读无乱码
+
+  - name: "12879235-DESIGN-定位失败地图栏提示"
+    repeat: 1
+    flow:
+      - ai: 在定位失败或 RTK 丢失环境下进入主界面地图页
+      - ai: 查看地图栏
+      - aiAssert: 地图栏显示定位丢失相关提示（如「定位丢失」或「切换地图」类文案）
+
+  - name: "12879571-区域选中底图与列表联动"
+    repeat: 1
+    flow:
+      # - ai: 点击地图上「A区草坪」标注区域
+      - ai: 点击地图上「{{zones.a.label}}」标注区域
+      # - aiAssert: A区草坪在地图上高亮；右侧任务区有响应（选中或进入快速任务）
+      - aiAssert: 「{{zones.a.label}}」在地图上高亮；右侧任务区有响应（选中或进入快速任务）
+
+  # --- 作业任务列表（Figma：作业任务 / + 新建 / 提示文案）---
+  - name: "DESIGN-作业任务面板与快速开始提示"
+    repeat: 1
+    flow:
+      - ai: 查看右侧任务面板顶部
+      # - aiAssert: 显示「作业任务」与「+ 新建」；下方提示「点击地图区域可快速开始任务」
+      - aiAssert: 显示「{{ui.panel.jobTasks}}」与「{{ui.buttons.newFab}}」；下方提示「{{home.guideTitle}}可快速开始任务」
+
+  - name: "12879481-任务卡片展开显示子任务"
+    repeat: 1
+    flow:
+      # - ai: 点击任务列表中「日常割草」卡片
+      - ai: 点击任务列表中「{{tasks.defaultSet}}」卡片
+      - aiAssert: 展开显示子步骤，含「割草」及「收集 + 割草」与刀盘高度（如 1.5"）；显示「2个任务」
+
+  - name: "12879482-任务卡片选中切换与地图高亮"
+    repeat: 1
+    flow:
+      # - ai: 点击未选中的「深度清理」任务卡片
+      - ai: 点击未选中的「{{tasks.secondarySet}}」任务卡片
+      - aiAssert: 卡片为选中态，地图对应区域高亮
+      # - ai: 点击已选中的「深度清理」卡片收起
+      - ai: 点击已选中的「{{tasks.secondarySet}}」卡片收起
+      - aiAssert: 卡片收起，高亮取消或减弱
+
+  - name: "12879307-默认任务星标置顶"
+    repeat: 1
+    flow:
+      - ai: 查看任务列表顺序
+      # - aiAssert: 「日常割草」名称旁有默认星标且位于列表最上方
+      - aiAssert: 「{{tasks.defaultSet}}」名称旁有默认星标且位于列表最上方
+
+  - name: "12879318-+新建跳转新建任务页"
+    repeat: 1
+    flow:
+      # - ai: 点击右上角「+ 新建」
+      - ai: 点击右上角「{{ui.buttons.newFab}}」
+      - ai: 等待直到进入新建任务页
+      - aiAssert: 页面标题含「新建任务」，非快速任务页
+
+  - name: "12879490-选中任务开始作业"
+    repeat: 1
+    flow:
+      # - ai: 选中「日常割草」任务集
+      - ai: 选中「{{tasks.defaultSet}}」任务集
+      # - ai: 点击「开始作业」
+      - ai: 点击「{{ui.buttons.startWork}}」
+      - ai: 若有确认弹窗则点击确认
+      - ai: 等待直到进入作业中页面
+      - aiAssert: 状态栏或页面显示作业进行中，非「空闲」
+# 人工：作业结束后返回；本 task 会真实启动作业
+
+  # --- 无地图引导（Figma 无地图 Frame，CSV P0）---
+  - name: "12879295-无地图引导与创建地图"
+    repeat: 1
+    flow:
+      - ai: 在未建图环境下进入主界面
+      # - aiAssert: 显示「请先创建地图」与「即可快速开始作业」
+      - aiAssert: 显示「请先创建地图」与「即可快速{{ui.buttons.startWork}}」
+      - ai: 点击「创建地图」
+      - aiAssert: 进入建图或地图创建流程页面
+
+  # --- 快速任务入口（详测见 快速任务_自动化测试.yaml）---
+  - name: "12879430-保存为任务弹窗"
+    repeat: 1
+    flow:
+      # - ai: 点击地图「B区草坪」进入快速任务页
+      - ai: 点击地图「{{zones.b.label}}」进入快速任务页
+      # - ai: 在可添加区域添加至少一条「C区草坪」
+      - ai: 在可添加区域添加至少一条「{{zones.c.label}}」
+      # - ai: 点击「保存为任务」
+      - ai: 点击「{{ui.buttons.saveAsTask}}」
+      # - aiAssert: 弹出「保存任务」对话框，含「请为任务命名」输入框
+      - aiAssert: 弹出「{{ui.buttons.saveTask}}」对话框，含「请为任务命名」输入框
+
+  - name: "12879548-任务命名1-50字符"
+    repeat: 1
+    flow:
+      # - ai: 在保存任务弹窗输入「界面设置冒烟测试」
+      - ai: 在{{ui.buttons.saveTask}}弹窗输入「{{tasks.save.uiSmoke}}」
+      - aiAssert: 字符计数显示如「8/50」或类似格式
+      - ai: 点击「保存」
+      # - aiAssert: 绿色 Toast「任务已保存」
+      - aiAssert: 绿色 Toast「{{ui.toasts.taskSaved}}」
+
+  - name: "12879531-快速任务返回未保存确认"
+    repeat: 1
+    flow:
+      - ai: 从主界面进入快速任务，添加一条区域任务但不保存
+      - ai: 点击左上角返回
+      - aiAssert: 弹出「任务未保存」确认弹窗
+
+  # --- 新建/编辑任务（详测见分套件，此处冒烟）---
+  - name: "12879411-新建页可添加区域点击加号"
+    repeat: 1
+    flow:
+      # - ai: 主界面点击「+ 新建」进入新建任务页
+      - ai: 主界面点击「{{ui.buttons.newFab}}」进入新建任务页
+      # - ai: 在「可添加区域」点击「B区草坪」右侧「+」
+      - ai: 在「可添加区域」点击「{{zones.b.label}}」右侧「+」
+      # - aiAssert: 任务列表增加 B区草坪；可添加区显示「已添加1次」或「已添加 1 次」
+      - aiAssert: 任务列表增加 {{zones.b.label}}；可添加区显示「已添加1次」或「已添加 1 次」
+
+  - name: "12879412-新建页点击地图添加区域"
+    repeat: 1
+    flow:
+      # - ai: 在新建任务页点击地图上「A区草坪」
+      - ai: 在新建任务页点击地图上「{{zones.a.label}}」
+      - aiAssert: 地图 A区高亮；任务列表新增 A区条目
+
+  - name: "12879256-编辑任务入口"
+    repeat: 1
+    flow:
+      # - ai: 主界面展开「日常割草」，点击「编辑任务」
+      - ai: 主界面展开「{{tasks.defaultSet}}」，点击「编辑任务」
+      - ai: 等待直到进入编辑任务页
+      - aiAssert: 页面标题含「编辑任务」
+
+  - name: "12879262-编辑任务保存返回"
+    repeat: 1
+    flow:
+      - ai: 在编辑任务页点击「保存」
+      - aiAssert: 返回主界面或上一级，Toast 或提示保存成功
+
+  # --- 地图展示 ---
+  - name: "12879394-已建图定位正常底图展示"
+    repeat: 1
+    flow:
+      - ai: 已建图且定位成功状态下查看主界面地图区
+      - aiAssert: 底图显示当前地图工作区、禁区等要素；左上角为当前地图名
+
+  - name: "12879396-未建图定位失败随机卫星图"
+    repeat: 1
+    flow:
+      - ai: 未建图且定位异常时进入地图展示区
+      - aiAssert: 显示卫星底图及建图引导，非已建图工作区轮廓
+
+  # --- 底栏快捷操作（Figma：设置/返航/回充）---
+  - name: "12879515-设置按钮进入设置页"
+    repeat: 1
+    flow:
+      - ai: 点击左下角「设置」
+      - ai: 等待直到进入设置界面
+      - aiAssert: 设置页正常显示，无白屏闪退
+      - ai: 返回主界面
+
+  - name: "12879522-返航按钮"
+    repeat: 1
+    flow:
+      - ai: 确认已设置返航点且机器空闲
+      - ai: 点击「返航」
+      - aiAssert: 机器开始返航或页面显示返航进行中
+# 人工：台架环境；返航结束后复位
+
+  - name: "12879516-回充按钮"
+    repeat: 1
+    flow:
+      - ai: 确认已设置回充点且机器空闲
+      - ai: 点击「回充」
+      - aiAssert: 机器开始前往回充点
+# 人工：台架环境
+
+  # --- 状态栏 ---
+  - name: "12879360-作业暂停状态栏黄色"
+    repeat: 1
+    flow:
+      - ai: 在作业进行中点击暂停
+      - ai: 查看状态栏左侧
+      - aiAssert: 状态显示「暂停」且为黄色样式
+
+  - name: "12879383-DESIGN-联网状态栏时间HHMM"
+    repeat: 1
+    flow:
+      - ai: 联网状态下查看状态栏时间
+      - aiAssert: 时间格式为 HH:MM，与当前时间大致一致

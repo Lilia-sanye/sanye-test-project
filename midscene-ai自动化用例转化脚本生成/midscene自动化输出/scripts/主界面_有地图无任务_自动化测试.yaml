@@ -1,0 +1,120 @@
+# 终稿：主界面「有地图无任务」态（对齐截图：绿城·中央公园 / A·B·C 区 / 暂无作业任务）
+# 配置：midscene自动化输出/config/env.yaml
+# 同步：python tools/apply_device_env.py --all  （midscene run 前必跑）
+# 执行前填写 android.deviceId；前置：已建图、定位成功、任务列表为空、机器空闲
+# 关联功能用例：12904003、12903556、12903870、12903941、12903943、12903886 等（A 档）
+config:
+  ai:
+    actionTimeout: 30000
+    retryInterval: 200
+  page:
+    defaultWait: 200
+
+android:
+  deviceId: "<设备ID>"
+  androidAdbPath: "{{device.adbPath}}"
+
+agent:
+  testId: "主界面-有地图无任务-P0"
+  groupName: "界面和任务设置"
+  groupDescription: "主界面展示/任务区/有地图无任务引导态"
+  generateReport: true
+  autoPrintReportMsg: true
+  aiActContext: >
+    机器人为空闲状态；已建图且定位成功；当前地图为「{{map.name}}」；
+    {{ui.panel.jobTasks}}列表为空。权限弹窗点允许；更新提示点跳过；确认框点确认。
+
+tasks:
+  - name: "12904003-地图栏展示当前定位地图名称"
+    repeat: 1
+    flow:
+      - ai: 等待直到进入主界面地图页
+      - ai: 查看左上角地图栏区域
+      # - aiAssert: 地图栏显示「绿城·中央公园」或当前定位地图名称，文字完整可读
+      - aiAssert: 地图栏显示「{{map.name}}」或当前定位地图名称，文字完整可读
+
+  - name: "12903556-无任务时任务面板默认展开与收起"
+    repeat: 1
+    flow:
+      - ai: 查看右侧任务面板标题
+      # - aiAssert: 面板标题显示「暂无作业任务」
+      - aiAssert: 面板标题显示「{{home.emptyPanelTitle}}」
+      # - ai: 点击「暂无作业任务」旁的下拉箭头收起面板
+      - ai: 点击「{{home.emptyPanelTitle}}」旁的下拉箭头收起面板
+      - ai: 等待直到右侧任务面板收起
+      - aiAssert: 地图区域占据更多屏幕，任务引导区已收起
+      - ai: 再次点击展开任务面板
+      # - aiAssert: 右侧重新显示「点击地图区域」引导文案与「+ 新建任务」按钮
+      - aiAssert: 右侧重新显示「{{home.guideTitle}}」引导文案与「{{ui.buttons.newTask}}」按钮
+
+  - name: "12903559-有地图无任务引导文案与示意图"
+    repeat: 1
+    flow:
+      - ai: 查看右侧引导面板主标题与副标题
+      # - aiAssert: 显示「点击地图区域」及「可快速创建任务、快速启动任务」文案，引导示意图完整
+      - aiAssert: 显示「{{home.guideTitle}}」及「{{home.guideSubtitle}}」文案，引导示意图完整
+
+  - name: "12903943-地图区域标注与底部快捷栏"
+    repeat: 1
+    flow:
+      - ai: 查看地图上绿色作业区标注
+      # - aiAssert: 地图可见「A区草坪 2000m²」「B区草坪 1500m²」「C区草坪 4000m²」等区域名称
+      - aiAssert: 地图可见「{{zones.a.mapLabel}}」「{{zones.b.mapLabel}}」「{{zones.c.mapLabel}}」等区域名称
+      - ai: 点击左下角定位（十字准星）按钮
+      - ai: 点击底部快捷栏「设置」按钮
+      - ai: 点击左上角返回或系统返回，回到主界面地图页
+      - ai: 点击底部快捷栏「返航」按钮
+      - ai: 若有未设置返航点提示，点击提示中的关闭或返回
+      - ai: 点击底部快捷栏「回充」按钮
+      - ai: 若有未设置回充点提示，点击提示中的关闭或返回
+      - aiAssert: 仍停留在主界面地图页，底部仍显示设置、返航、回充三个入口
+
+  - name: "12903886-设置按钮跳转设置页"
+    repeat: 1
+    flow:
+      - ai: 点击底部快捷栏「设置」
+      - ai: 等待直到进入设置界面
+      - aiAssert: 页面为系统或应用设置页，非白屏、无闪退
+      - ai: 点击返回回到主界面地图页
+      - aiAssert: 回到主界面，地图与任务面板正常显示
+
+  - name: "12903870-新建任务入口跳转"
+    repeat: 1
+    flow:
+      # - ai: 点击右侧蓝色「+ 新建任务」按钮
+      - ai: 点击右侧蓝色「{{ui.buttons.newTask}}」按钮
+      - ai: 等待直到进入新建或编辑任务页面
+      - aiAssert: 进入任务创建页面，可见任务名或区域添加相关控件
+      - ai: 点击返回或取消回到主界面
+      # - aiAssert: 回到主界面，任务列表仍为空，显示「暂无作业任务」
+      - aiAssert: 回到主界面，任务列表仍为空，显示「{{home.emptyPanelTitle}}」
+
+  - name: "12903941-点击地图作业区触发快速任务"
+    repeat: 1
+    flow:
+      # - ai: 点击地图上「A区草坪」绿色标注区域
+      - ai: 点击地图上「{{zones.a.label}}」绿色标注区域
+      - ai: 等待直到出现快速任务或任务编辑相关页面
+      - aiAssert: 进入快速任务创建或任务编辑页，而非无响应或崩溃
+      - ai: 点击返回取消，回到主界面
+      - aiAssert: 回到主界面地图页，仍显示三个草坪区域标注
+
+  - name: "12903350-新建任务页点击地图添加区域"
+    repeat: 1
+    flow:
+      # - ai: 点击「+ 新建任务」进入新建任务页
+      - ai: 点击「{{ui.buttons.newTask}}」进入新建任务页
+      # - ai: 点击地图上「B区草坪」区域
+      - ai: 点击地图上「{{zones.b.label}}」区域
+      - aiAssert: 任务列表计数增加或出现已添加区域提示，地图上 B 区呈选中高亮
+      - ai: 点击返回回到主界面
+
+  - name: "12903736-地图栏点击弹出地图切换列表"
+    repeat: 1
+    flow:
+      # - ai: 点击左上角「绿城·中央公园」地图栏
+      - ai: 点击左上角「{{map.name}}」地图栏
+      - ai: 等待直到弹出地图切换列表
+      - aiAssert: 出现地图切换列表弹窗，可看到可选地图项
+      - ai: 点击弹窗外部或关闭按钮关闭列表
+      - aiAssert: 弹窗关闭，主界面地图与任务面板恢复正常
